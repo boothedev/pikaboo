@@ -61,7 +61,7 @@ Discord Events → PointService → ActiveUserCache (in-memory)
 
 ```bash
 # 1. Clone and install
-git clone <repo-url> && cd pikaboo
+git clone https://github.com/boothedev/pikaboo.git && cd pikaboo
 pnpm install
 
 # 2. Set up environment
