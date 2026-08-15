@@ -108,7 +108,7 @@ Configuration lives in the `config` table in Turso. On startup, defaults are see
 | Key | Value | Description |
 |---|---|---|
 | `cooldown_ms` | `20000` | Minimum milliseconds between point awards per user |
-| `allowed_channels` | `[]` | JSON array of channel IDs (empty = all channels allowed) |
+| `allowed_channels` | `[]` | JSON array of channel IDs (empty = all channels allowed; children/threads of an allowed channel are also allowed) |
 | `flush_interval_ms` | `180000` | Milliseconds between background DB flush batches (longer = larger durability window on crash) |
 | `eviction_interval_ms` | `300000` | How often stale cache entries are checked for eviction |
 | `stale_max_age_ms` | `600000` | Idle time (ms) after which a user with no pending points is evicted from the cache |

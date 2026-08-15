@@ -1,9 +1,11 @@
 import { Client, GatewayIntentBits, Events } from "discord.js";
 import { ActiveUserCache } from "@/cache/ActiveUserCache";
+import { ChannelHierarchy } from "@/cache/ChannelHierarchy";
 import { ConfigService } from "@/services/ConfigService";
 import { PointService } from "@/services/PointService";
 import { onReady } from "@/events/ready";
 import { createMessageHandler } from "@/events/messageCreate";
+import { registerChannelEvents } from "@/events/channels";
 import { createLogger } from "@/utils/logger";
 import { env } from "@/utils/env";
 
@@ -14,11 +16,12 @@ const logger = createLogger("Bootstrap");
 const cache = new ActiveUserCache();
 const configService = new ConfigService();
 const pointService = new PointService(cache, configService);
+const hierarchy = new ChannelHierarchy();
 
 // ─── Discord client ────────────────────────────────────────────────────
 
 const client = new Client({
-  intents: [GatewayIntentBits.GuildMessages],
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages],
 });
 
 // ─── Register events ───────────────────────────────────────────────────
@@ -27,7 +30,9 @@ client.once(Events.ClientReady, (readyClient: Client<true>) => {
   onReady(readyClient);
 });
 
-const handleMessage = createMessageHandler(pointService, configService);
+registerChannelEvents(client, hierarchy);
+
+const handleMessage = createMessageHandler(pointService, configService, hierarchy);
 client.on(Events.MessageCreate, handleMessage);
 
 // ─── Graceful shutdown ─────────────────────────────────────────────────
