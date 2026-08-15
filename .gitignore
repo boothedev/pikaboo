@@ -70,6 +70,9 @@ web_modules/
 .env.*
 !.env.example
 
+# pi coding agent workspace
+.pi/
+
 # parcel-bundler cache (https://parceljs.org/)
 .cache
 .parcel-cache

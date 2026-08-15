@@ -1,7 +1,6 @@
 import type { Message } from "discord.js";
 import type { PointService } from "@/services/PointService";
 import type { ConfigService } from "@/services/ConfigService";
-import type { ChannelHierarchy } from "@/cache/ChannelHierarchy";
 
 /**
  * Creates a messageCreate event handler.
@@ -15,9 +14,8 @@ import type { ChannelHierarchy } from "@/cache/ChannelHierarchy";
 export function createMessageHandler(
   pointService: PointService,
   configService: ConfigService,
-  hierarchy: ChannelHierarchy,
-): (message: Message) => Promise<void> {
-  return async (message: Message): Promise<void> => {
+): (message: Message) => void {
+  return (message: Message): void => {
     // Ignore bots (including our own messages)
     if (message.author.bot) return;
 
@@ -25,15 +23,19 @@ export function createMessageHandler(
     if (!message.guild) return;
 
     const channel = message.channel;
-    if (channel.isDMBased()) return; // narrows to guild channels (have parentId)
+    if (channel.isDMBased()) return; // narrows to guild channels
 
-    const candidateIds = hierarchy.getSelfAndAncestors(
-      channel.id,
-      channel.parentId,
-    );
+    // Collect the channel and all its ancestors (thread → text → category).
+    const candidateIds: string[] = [];
+    let current: typeof channel | typeof channel.parent | null = channel;
+    while (current) {
+      candidateIds.push(current.id);
+      current = current.parent;
+    }
+
     if (!candidateIds.some((id) => configService.isChannelAllowed(id))) return;
 
     // Delegate to the service — it handles cooldown, caching, etc.
-    await pointService.onEligibleMessage(message.author.id);
+    pointService.onEligibleMessage(message.author.id);
   };
 }
