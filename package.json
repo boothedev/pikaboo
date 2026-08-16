@@ -4,7 +4,8 @@
   "description": "Discord points bot",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "tsx --env-file=.env watch src/index.ts",
+    "dev": "tsx --env-file=.env src/index.ts",
+    "dev:watch": "tsx watch --env-file=.env src/index.ts",
     "start": "node dist/index.js",
     "build": "tsup src/index.ts --minify --format esm",
     "db:generate": "drizzle-kit generate",
