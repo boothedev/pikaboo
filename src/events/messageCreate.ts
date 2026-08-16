@@ -25,15 +25,14 @@ export function createMessageHandler(
     const channel = message.channel;
     if (channel.isDMBased()) return; // narrows to guild channels
 
-    // Collect the channel and all its ancestors (thread → text → category).
-    const candidateIds: string[] = [];
+    // Check if the channel or any of its ancestors is in the allowlist (thread → text → category).
     let current: typeof channel | typeof channel.parent | null = channel;
-    while (current) {
-      candidateIds.push(current.id);
+
+    while (current && !configService.isChannelAllowed(current.id)) {
       current = current.parent;
     }
 
-    if (!candidateIds.some((id) => configService.isChannelAllowed(id))) return;
+    if (!current) return;
 
     // Delegate to the service — it handles cooldown, caching, etc.
     pointService.onEligibleMessage(message.author.id);
