@@ -1,4 +1,6 @@
-import { Client, GatewayIntentBits, Events, Options } from "discord.js";
+import { Events } from "discord.js";
+import type { Client } from "discord.js";
+import { client } from "@/discord/client";
 import { ActiveUserCache } from "@/cache/ActiveUserCache";
 import { ConfigService } from "@/services/ConfigService";
 import { PointService } from "@/services/PointService";
@@ -14,43 +16,6 @@ const logger = createLogger("Bootstrap");
 const cache = new ActiveUserCache();
 const configService = new ConfigService();
 const pointService = new PointService(cache, configService);
-
-// ─── Discord client ────────────────────────────────────────────────────
-
-const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages],
-  makeCache: Options.cacheWithLimits({
-    ApplicationCommandManager: 0,
-    ApplicationEmojiManager: 0,
-    AutoModerationRuleManager: 0,
-    BaseGuildEmojiManager: 0,
-    // Non-exist: ChannelManager: inf,
-    DMMessageManager: 0,
-    EntitlementManager: 0,
-    GuildBanManager: 0,
-    // Non-exist: GuildChannelManager: inf,
-    GuildEmojiManager: 0,
-    GuildForumThreadManager: 0,
-    GuildInviteManager: 0,
-    // Non-exist: GuildManager: inf,
-    GuildMemberManager: 0,
-    GuildMessageManager: 0,
-    GuildScheduledEventManager: 0,
-    GuildStickerManager: 0,
-    GuildTextThreadManager: 0,
-    MessageManager: 0,
-    // Non-exist: PermissionOverwriteManager: inf,
-    PresenceManager: 0,
-    ReactionManager: 0,
-    ReactionUserManager: 0,
-    // Non-exist: RoleManager: inf,
-    StageInstanceManager: 0,
-    ThreadManager: 0,
-    ThreadMemberManager: 0,
-    UserManager: 0,
-    VoiceStateManager: 0,
-  }),
-});
 
 // ─── Register events ───────────────────────────────────────────────────
 
