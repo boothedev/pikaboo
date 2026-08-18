@@ -51,6 +51,53 @@ export async function addPointsBatch(data: Array<PendingCount>) {
 }
 
 /**
+ * Set a user's points to an exact non-negative value.
+ * Inserts the user row if it doesn't exist (upsert).
+ * Returns the new total.
+ */
+export async function setPoints(
+  userId: string,
+  points: number,
+): Promise<number> {
+  const db = getDb();
+  const result = await db
+    .insert(users)
+    .values({ userId, points })
+    .onConflictDoUpdate({
+      target: users.userId,
+      set: { points },
+    })
+    .returning({ points: users.points })
+    .get();
+
+  return result.points;
+}
+
+/**
+ * Adjust a user's points by a signed delta (negative removes points).
+ * The total is clamped so it never drops below zero.
+ * Inserts the user row if it doesn't exist (upsert).
+ * Returns the new total.
+ */
+export async function adjustPoints(
+  userId: string,
+  delta: number,
+): Promise<number> {
+  const db = getDb();
+  const result = await db
+    .insert(users)
+    .values({ userId, points: Math.max(0, delta) })
+    .onConflictDoUpdate({
+      target: users.userId,
+      set: { points: sql`max(${users.points} + ${delta}, 0)` },
+    })
+    .returning({ points: users.points })
+    .get();
+
+  return result.points;
+}
+
+/**
  * Get the current point total for a single user (DB only, excludes pending cache).
  */
 export async function getPoints(userId: string): Promise<number> {

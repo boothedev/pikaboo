@@ -73,6 +73,36 @@ export class PointService extends EventTarget {
     return queries.addPoints(userId, amount);
   }
 
+  /**
+   * Set a user's total points to an exact value.
+   * Flushes any unflushed pending points first so the total is exact.
+   * `points` must be a non-negative integer.
+   */
+  async setPoints(userId: string, points: number): Promise<number> {
+    if (!Number.isInteger(points) || points < 0) {
+      throw new Error("points must be a non-negative integer");
+    }
+    await this.flushUserPending(userId);
+    const total = await queries.setPoints(userId, points);
+    logger.info(`Set ${userId} points to ${total}`);
+    return total;
+  }
+
+  /**
+   * Adjust a user's points by a signed delta (negative removes points).
+   * Flushes any unflushed pending points first. The total is clamped at zero.
+   * `delta` must be an integer.
+   */
+  async adjustPoints(userId: string, delta: number): Promise<number> {
+    if (!Number.isInteger(delta)) {
+      throw new Error("delta must be an integer");
+    }
+    await this.flushUserPending(userId);
+    const total = await queries.adjustPoints(userId, delta);
+    logger.info(`Adjusted ${userId} points by ${delta} (new total: ${total})`);
+    return total;
+  }
+
   // ─── Background flush ───────────────────────────────────────────────
 
   /**
@@ -156,6 +186,17 @@ export class PointService extends EventTarget {
   }
 
   // ─── Private ────────────────────────────────────────────────────────
+
+  /**
+   * Flush a single user's pending points to the database so a subsequent
+   * absolute operation (set/adjust) sees the true current total.
+   */
+  private async flushUserPending(userId: string): Promise<void> {
+    const entry = this.cache.get(userId);
+    if (!entry || entry.pending <= 0) return;
+    await queries.addPoints(userId, entry.pending);
+    entry.pending = 0;
+  }
 
   /**
    * Schedule the next flush using the current (possibly reloaded) interval.

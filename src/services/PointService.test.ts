@@ -7,6 +7,8 @@ const mocks = vi.hoisted(() => ({
   addPoints: vi.fn(),
   addPointsBatch: vi.fn(),
   getPoints: vi.fn(),
+  setPoints: vi.fn(),
+  adjustPoints: vi.fn(),
   getAllConfig: vi.fn(),
   seedDefaultConfig: vi.fn(),
   setConfigValue: vi.fn(),
@@ -28,6 +30,8 @@ describe("PointService", () => {
     mocks.addPoints.mockReset();
     mocks.addPointsBatch.mockReset();
     mocks.getPoints.mockReset();
+    mocks.setPoints.mockReset();
+    mocks.adjustPoints.mockReset();
   });
 
   afterEach(() => {
@@ -98,6 +102,55 @@ describe("PointService", () => {
       pointService.awardPoints("u1", 5, "giveaway"),
     ).resolves.toBe(42);
     expect(mocks.addPoints).toHaveBeenCalledWith("u1", 5);
+  });
+
+  it("setPoints flushes pending and sets an exact total", async () => {
+    const { cache, pointService } = setup();
+    mocks.addPoints.mockResolvedValue(10);
+    mocks.setPoints.mockResolvedValue(100);
+    cache.set("u1", { lastEarn: Date.now(), pending: 3 });
+
+    await expect(pointService.setPoints("u1", 100)).resolves.toBe(100);
+
+    expect(mocks.addPoints).toHaveBeenCalledWith("u1", 3);
+    expect(mocks.setPoints).toHaveBeenCalledWith("u1", 100);
+    expect(cache.get("u1")!.pending).toBe(0);
+  });
+
+  it("setPoints rejects negative or non-integer values", async () => {
+    const { pointService } = setup();
+
+    await expect(pointService.setPoints("u1", -1)).rejects.toThrow(
+      "non-negative integer",
+    );
+    await expect(pointService.setPoints("u1", 1.5)).rejects.toThrow(
+      "non-negative integer",
+    );
+
+    expect(mocks.setPoints).not.toHaveBeenCalled();
+  });
+
+  it("adjustPoints flushes pending and applies a signed delta", async () => {
+    const { cache, pointService } = setup();
+    mocks.addPoints.mockResolvedValue(10);
+    mocks.adjustPoints.mockResolvedValue(90);
+    cache.set("u1", { lastEarn: Date.now(), pending: 3 });
+
+    await expect(pointService.adjustPoints("u1", -10)).resolves.toBe(90);
+
+    expect(mocks.addPoints).toHaveBeenCalledWith("u1", 3);
+    expect(mocks.adjustPoints).toHaveBeenCalledWith("u1", -10);
+    expect(cache.get("u1")!.pending).toBe(0);
+  });
+
+  it("adjustPoints rejects non-integer deltas", async () => {
+    const { pointService } = setup();
+
+    await expect(pointService.adjustPoints("u1", 0.5)).rejects.toThrow(
+      "integer",
+    );
+
+    expect(mocks.adjustPoints).not.toHaveBeenCalled();
   });
 
   it("shutdown flushes remaining pending points", async () => {
