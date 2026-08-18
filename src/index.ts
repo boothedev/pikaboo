@@ -1,11 +1,13 @@
 import { Events } from "discord.js";
 import type { Client } from "discord.js";
 import { client } from "@/discord/client";
+import { createInteractionRegistry } from "@/commands";
 import { ActiveUserCache } from "@/cache/ActiveUserCache";
 import { ConfigService } from "@/services/ConfigService";
 import { PointService } from "@/services/PointService";
 import { onReady } from "@/events/ready";
 import { createMessageHandler } from "@/events/messageCreate";
+import { createInteractionHandler } from "@/events/interactionCreate";
 import { createLogger } from "@/utils/logger";
 import { env } from "@/utils/env";
 
@@ -17,14 +19,23 @@ const cache = new ActiveUserCache();
 const configService = new ConfigService();
 const pointService = new PointService(cache, configService);
 
+// Build the interaction registry from the bot's command/component/modal list.
+const registry = createInteractionRegistry(configService, pointService);
+
 // ─── Register events ───────────────────────────────────────────────────
 
 client.once(Events.ClientReady, (readyClient: Client<true>) => {
   onReady(readyClient);
+  registry.register(readyClient).catch((err) => {
+    logger.error("Failed to register slash commands", err);
+  });
 });
 
 const handleMessage = createMessageHandler(pointService, configService);
 client.on(Events.MessageCreate, handleMessage);
+
+const handleInteraction = createInteractionHandler(registry);
+client.on(Events.InteractionCreate, handleInteraction);
 
 // ─── Graceful shutdown ─────────────────────────────────────────────────
 
