@@ -6,7 +6,8 @@ import type { ConfigService } from "@/services/ConfigService";
  * Creates a messageCreate event handler.
  *
  * The handler does the minimum Discord-specific work (bot check, guild check,
- * channel allowlist check) and delegates all business logic to PointService.
+ * user-blacklist check, channel allowlist check) and delegates all business
+ * logic to PointService.
  *
  * A message is eligible when its channel is in the allowlist. When
  * `allowChannelChildren` is enabled (the default), a message is also eligible
@@ -22,6 +23,9 @@ export function createMessageHandler(
 
     // Ignore DMs — points only apply in guild channels
     if (!message.guild) return;
+
+    // Ignore blacklisted users — they cannot earn points from messages
+    if (configService.isUserBlacklisted(message.author.id)) return;
 
     const channel = message.channel;
     if (channel.isDMBased()) return; // narrows to guild channels

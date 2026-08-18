@@ -37,6 +37,8 @@ describe("ConfigService", () => {
     );
     // Empty allowlist means all channels are allowed.
     expect(service.isChannelAllowed("any")).toBe(true);
+    // No users are blacklisted by default.
+    expect(service.isUserBlacklisted("any")).toBe(false);
   });
 
   it("loads config from the database on init", async () => {
@@ -46,6 +48,7 @@ describe("ConfigService", () => {
         ["flush_interval_ms", "60000"],
         ["allow_channel_children", "false"],
         ["allowed_channels", '["111", "222"]'],
+        ["blacklisted_users", '["333"]'],
       ]),
     );
 
@@ -57,6 +60,8 @@ describe("ConfigService", () => {
     expect(service.getAllowChannelChildren()).toBe(false);
     expect(service.isChannelAllowed("111")).toBe(true);
     expect(service.isChannelAllowed("333")).toBe(false);
+    expect(service.isUserBlacklisted("333")).toBe(true);
+    expect(service.isUserBlacklisted("111")).toBe(false);
   });
 
   it("ignores invalid values and keeps the previous config", async () => {
@@ -66,6 +71,7 @@ describe("ConfigService", () => {
         ["flush_interval_ms", "-5"],
         ["allow_channel_children", "not-a-bool"],
         ["allowed_channels", "not json"],
+        ["blacklisted_users", "not json"],
       ]),
     );
 
@@ -78,6 +84,7 @@ describe("ConfigService", () => {
       DEFAULT_ALLOW_CHANNEL_CHILDREN,
     );
     expect(service.isChannelAllowed("any")).toBe(true);
+    expect(service.isUserBlacklisted("any")).toBe(false);
   });
 
   it("setCooldownMs persists and applies immediately", async () => {
@@ -121,6 +128,18 @@ describe("ConfigService", () => {
     expect(mocks.setConfigValue).toHaveBeenCalledWith(
       "allow_channel_children",
       "false",
+    );
+  });
+
+  it("setBlacklistedUsers persists and applies immediately", async () => {
+    const service = new ConfigService();
+    await service.setBlacklistedUsers(["111", "222"]);
+
+    expect(service.isUserBlacklisted("111")).toBe(true);
+    expect(service.isUserBlacklisted("999")).toBe(false);
+    expect(mocks.setConfigValue).toHaveBeenCalledWith(
+      "blacklisted_users",
+      '["111","222"]',
     );
   });
 });

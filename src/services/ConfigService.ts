@@ -21,6 +21,7 @@ export class ConfigService {
   private config: BotConfig = {
     cooldownMs: DEFAULT_COOLDOWN_MS,
     allowedChannelIds: new Set(),
+    blacklistedUserIds: new Set(),
     allowChannelChildren: DEFAULT_ALLOW_CHANNEL_CHILDREN,
     flushIntervalMs: DEFAULT_FLUSH_INTERVAL_MS,
     evictionIntervalMs: DEFAULT_EVICTION_INTERVAL_MS,
@@ -37,6 +38,7 @@ export class ConfigService {
     logger.info("ConfigService initialized", {
       cooldownMs: this.config.cooldownMs,
       allowedChannels: this.config.allowedChannelIds.size,
+      blacklistedUsers: this.config.blacklistedUserIds.size,
       allowChannelChildren: this.config.allowChannelChildren,
       flushIntervalMs: this.config.flushIntervalMs,
       evictionIntervalMs: this.config.evictionIntervalMs,
@@ -72,24 +74,21 @@ export class ConfigService {
         this.config.allowChannelChildren,
       );
 
-      // Parse allowed channels (JSON array of channel ID strings)
-      const channelsRaw = rows.get("allowed_channels");
-      if (channelsRaw) {
-        try {
-          const channelIds: unknown = JSON.parse(channelsRaw);
-          if (
-            Array.isArray(channelIds) &&
-            channelIds.every((id): id is string => typeof id === "string")
-          ) {
-            this.config.allowedChannelIds = new Set(channelIds);
-          } else {
-            logger.warn(
-              "allowed_channels config is not a string array, ignoring",
-            );
-          }
-        } catch {
-          logger.warn("Failed to parse allowed_channels config JSON");
-        }
+      // Parse ID-array config values (allowed channels, blacklisted users)
+      const allowedChannels = this.parseStringArray(
+        rows.get("allowed_channels"),
+        "allowed_channels",
+      );
+      if (allowedChannels) {
+        this.config.allowedChannelIds = allowedChannels;
+      }
+
+      const blacklistedUsers = this.parseStringArray(
+        rows.get("blacklisted_users"),
+        "blacklisted_users",
+      );
+      if (blacklistedUsers) {
+        this.config.blacklistedUserIds = blacklistedUsers;
       }
     } catch (err) {
       logger.error("ConfigService.reload failed", err);
@@ -129,12 +128,20 @@ export class ConfigService {
   }
 
   /**
+   * Check whether a user is blacklisted from earning points via messages.
+   */
+  isUserBlacklisted(userId: string): boolean {
+    return this.config.blacklistedUserIds.has(userId);
+  }
+
+  /**
    * Snapshot of the current config for debugging/health checks.
    */
   getSnapshot(): Readonly<BotConfig> {
     return {
       cooldownMs: this.config.cooldownMs,
       allowedChannelIds: new Set(this.config.allowedChannelIds),
+      blacklistedUserIds: new Set(this.config.blacklistedUserIds),
       allowChannelChildren: this.config.allowChannelChildren,
       flushIntervalMs: this.config.flushIntervalMs,
       evictionIntervalMs: this.config.evictionIntervalMs,
@@ -194,6 +201,15 @@ export class ConfigService {
   }
 
   /**
+   * Update the user blacklist (users who cannot earn points from messages).
+   * Empty array = no blacklist. Persists to DB and applies immediately.
+   */
+  async setBlacklistedUsers(userIds: string[]): Promise<void> {
+    await setConfigValue("blacklisted_users", JSON.stringify(userIds));
+    this.config.blacklistedUserIds = new Set(userIds);
+  }
+
+  /**
    * Toggle whether children of an allowed channel also count.
    * Persists to DB and applies immediately.
    */
@@ -223,6 +239,32 @@ export class ConfigService {
     if (raw === "true") return true;
     if (raw === "false") return false;
     return fallback;
+  }
+
+  /**
+   * Parse a JSON string-array config value into a Set of IDs.
+   * Returns null when the value is missing or invalid, so callers keep the
+   * previous in-memory config.
+   */
+  private parseStringArray(
+    raw: string | undefined,
+    key: string,
+  ): Set<string> | null {
+    if (!raw) return null;
+    try {
+      const value: unknown = JSON.parse(raw);
+      if (
+        Array.isArray(value) &&
+        value.every((id): id is string => typeof id === "string")
+      ) {
+        return new Set(value);
+      }
+      logger.warn(`${key} config is not a string array, ignoring`);
+      return null;
+    } catch {
+      logger.warn(`Failed to parse ${key} config JSON`);
+      return null;
+    }
   }
 
   /**
