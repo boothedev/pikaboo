@@ -116,6 +116,7 @@ export async function seedDefaultConfig(): Promise<void> {
   const defaults: Record<string, string> = {
     cooldown_ms: "20000",
     allowed_channels: "[]",
+    allow_channel_children: "true",
     flush_interval_ms: "180000",
     eviction_interval_ms: "300000",
     stale_max_age_ms: "600000",

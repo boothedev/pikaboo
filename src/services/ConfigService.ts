@@ -8,6 +8,7 @@ export const DEFAULT_COOLDOWN_MS = 20_000;
 export const DEFAULT_FLUSH_INTERVAL_MS = 180_000;
 export const DEFAULT_EVICTION_INTERVAL_MS = 300_000;
 export const DEFAULT_STALE_MAX_AGE_MS = 600_000;
+export const DEFAULT_ALLOW_CHANNEL_CHILDREN = true;
 
 /**
  * Manages runtime configuration sourced from the Turso `config` table.
@@ -20,6 +21,7 @@ export class ConfigService {
   private config: BotConfig = {
     cooldownMs: DEFAULT_COOLDOWN_MS,
     allowedChannelIds: new Set(),
+    allowChannelChildren: DEFAULT_ALLOW_CHANNEL_CHILDREN,
     flushIntervalMs: DEFAULT_FLUSH_INTERVAL_MS,
     evictionIntervalMs: DEFAULT_EVICTION_INTERVAL_MS,
     cacheStaleMaxAgeMs: DEFAULT_STALE_MAX_AGE_MS,
@@ -35,6 +37,7 @@ export class ConfigService {
     logger.info("ConfigService initialized", {
       cooldownMs: this.config.cooldownMs,
       allowedChannels: this.config.allowedChannelIds.size,
+      allowChannelChildren: this.config.allowChannelChildren,
       flushIntervalMs: this.config.flushIntervalMs,
       evictionIntervalMs: this.config.evictionIntervalMs,
       cacheStaleMaxAgeMs: this.config.cacheStaleMaxAgeMs,
@@ -63,6 +66,10 @@ export class ConfigService {
       this.config.cacheStaleMaxAgeMs = this.parsePositiveInt(
         rows.get("stale_max_age_ms"),
         this.config.cacheStaleMaxAgeMs,
+      );
+      this.config.allowChannelChildren = this.parseBoolean(
+        rows.get("allow_channel_children"),
+        this.config.allowChannelChildren,
       );
 
       // Parse allowed channels (JSON array of channel ID strings)
@@ -108,6 +115,10 @@ export class ConfigService {
     return this.config.cacheStaleMaxAgeMs;
   }
 
+  getAllowChannelChildren(): boolean {
+    return this.config.allowChannelChildren;
+  }
+
   /**
    * Check whether a channel is eligible for point awards.
    * If no channels are explicitly configured, ALL channels are allowed.
@@ -124,6 +135,7 @@ export class ConfigService {
     return {
       cooldownMs: this.config.cooldownMs,
       allowedChannelIds: new Set(this.config.allowedChannelIds),
+      allowChannelChildren: this.config.allowChannelChildren,
       flushIntervalMs: this.config.flushIntervalMs,
       evictionIntervalMs: this.config.evictionIntervalMs,
       cacheStaleMaxAgeMs: this.config.cacheStaleMaxAgeMs,
@@ -181,6 +193,15 @@ export class ConfigService {
     this.config.allowedChannelIds = new Set(channelIds);
   }
 
+  /**
+   * Toggle whether children of an allowed channel also count.
+   * Persists to DB and applies immediately.
+   */
+  async setAllowChannelChildren(value: boolean): Promise<void> {
+    await setConfigValue("allow_channel_children", String(value));
+    this.config.allowChannelChildren = value;
+  }
+
   // ─── Private ────────────────────────────────────────────────────────
 
   /**
@@ -191,6 +212,17 @@ export class ConfigService {
     if (!raw) return fallback;
     const parsed = Number.parseInt(raw, 10);
     return !Number.isNaN(parsed) && parsed > 0 ? parsed : fallback;
+  }
+
+  /**
+   * Parse a boolean config value ("true"/"false"), falling back to `fallback`
+   * when the raw value is missing or invalid.
+   */
+  private parseBoolean(raw: string | undefined, fallback: boolean): boolean {
+    if (raw === undefined) return fallback;
+    if (raw === "true") return true;
+    if (raw === "false") return false;
+    return fallback;
   }
 
   /**

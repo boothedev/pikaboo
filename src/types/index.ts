@@ -23,6 +23,8 @@ export interface BotConfig {
   cooldownMs: number;
   /** Channels where messages earn points. Empty set = all channels allowed. */
   allowedChannelIds: Set<string>;
+  /** Whether children of an allowed channel (threads, sub-channels) also count. */
+  allowChannelChildren: boolean;
   /** Milliseconds between background DB flush batches. */
   flushIntervalMs: number;
   /** How often stale cache entries are checked for eviction. */

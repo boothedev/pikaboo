@@ -8,8 +8,9 @@ import type { ConfigService } from "@/services/ConfigService";
  * The handler does the minimum Discord-specific work (bot check, guild check,
  * channel allowlist check) and delegates all business logic to PointService.
  *
- * A message is eligible if its channel — or any ancestor (thread → text
- * channel → category) — is in the allowlist.
+ * A message is eligible when its channel is in the allowlist. When
+ * `allowChannelChildren` is enabled (the default), a message is also eligible
+ * if any ancestor (thread → text channel → category) is in the allowlist.
  */
 export function createMessageHandler(
   pointService: PointService,
@@ -25,8 +26,17 @@ export function createMessageHandler(
     const channel = message.channel;
     if (channel.isDMBased()) return; // narrows to guild channels
 
-    // Check if the channel or any of its ancestors is in the allowlist (thread → text → category).
-    let current: typeof channel | typeof channel.parent | null = channel;
+    // An exact channel match always counts.
+    if (configService.isChannelAllowed(channel.id)) {
+      pointService.onEligibleMessage(message.author.id);
+      return;
+    }
+
+    // When disabled, only exact allowlist matches count — no ancestor walk.
+    if (!configService.getAllowChannelChildren()) return;
+
+    // Check whether any ancestor (thread → text → category) is allowlisted.
+    let current = channel.parent;
 
     while (current && !configService.isChannelAllowed(current.id)) {
       current = current.parent;
